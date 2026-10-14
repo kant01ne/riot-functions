@@ -207,8 +207,7 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
 
         <div className="steps">
           <Step {...stepProps(0)} title="Deploy this app">
-            <p>This page is running, so the deployment worked. Your webhook URL:</p>
-            <Copy value={webhookUrl} />
+            <p>This page is running, so the deployment worked. Nothing to do here.</p>
           </Step>
 
           <Step {...stepProps(1)} title="Create the webhook endpoint in Riot"
