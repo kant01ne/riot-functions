@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ConfigStatus } from "@/lib/config";
+import { EntraPermissionsShot, EntraSecretShot, GcpKeyShot, RiotEndpointShot, RiotTestShot, VercelEnvShot } from "./illustrations";
 
 type State = "done" | "todo" | "error" | "skipped";
 type Check = { ok: boolean; message: string } | null;
@@ -107,8 +108,9 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
 
   return (
     <main>
-      <header>
-        <p className="eyebrow">Riot Sonar</p>
+      <div className="glow" />
+      <header className="hero">
+        <p className="eyebrow"><span className="logo-dot" />Riot Sonar</p>
         <h1>Permission revoker setup</h1>
         <p className="lead">
           This app receives revocation requests from Riot Sonar and removes the sharing permission in your Google Workspace or
@@ -140,6 +142,7 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
           </li>
           <li>Redeploy (<b>Deployments → ⋯ → Redeploy</b>) and reload this page.</li>
         </ol>
+        <div className="shots"><RiotEndpointShot url={webhookUrl} /><VercelEnvShot name="RIOT_WEBHOOK_SECRET" value="whsec_••••••••" /></div>
       </Step>
 
       <Step n={3} title="Connect Google Workspace" state={googleState}
@@ -153,11 +156,14 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
           <li>Open it, go to <b>Keys → Add key → Create new key → JSON</b>. A JSON file downloads.</li>
           <li>On the service account details page, copy the <b>Unique ID</b>. This is the OAuth client ID.</li>
         </ol>
+        <div className="shots"><figure className="shot"><img src="/tutorial/gcp-enable-drive.jpg" alt="Enable the Google Drive API" loading="lazy" /><figcaption>Enable the Google Drive API</figcaption></figure><figure className="shot"><img src="/tutorial/gcp-create-sa.jpg" alt="Create the service account" loading="lazy" /><figcaption>Create the service account</figcaption></figure></div>
+        <GcpKeyShot />
         <h3>Allow it to act on Drive files</h3>
         <ol start={6}>
           <li>As a super admin, open <a href="https://admin.google.com/ac/owl/domainwidedelegation" target="_blank" rel="noreferrer">Admin console → Security → API controls → Domain-wide delegation</a>.</li>
           <li>Click <b>Add new</b>, paste the client ID, and add this scope: <Copy value="https://www.googleapis.com/auth/drive" /></li>
         </ol>
+        <figure className="shot narrow"><img src="/tutorial/google-delegation.jpg" alt="Add new client ID with the Drive scope" loading="lazy" /><figcaption>Add new client ID with the Drive scope</figcaption></figure>
         <h3>Give the key to this app</h3>
         <ol start={8}>
           <li>Add the environment variable <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and paste the full content of the JSON file.</li>
@@ -184,8 +190,10 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
           <li>Open <b>API permissions → Add a permission → Microsoft Graph → Application permissions</b> and add <Copy value="Files.ReadWrite.All" /></li>
           <li>Remove the default <code>User.Read</code> delegated permission, which this app does not need.</li>
           <li>Click <b>Grant admin consent</b>. The status column must show a green check.</li>
+          <li className="bare"><EntraPermissionsShot /></li>
           <li>Open <b>Certificates &amp; secrets → New client secret</b> and copy its <b>Value</b> right away. Note its expiry date: the app stops working when it expires.</li>
           <li>From the <b>Overview</b> page, copy the <b>Directory (tenant) ID</b> and the <b>Application (client) ID</b>.</li>
+          <li className="bare"><EntraSecretShot /></li>
           <li>Add three environment variables: <code>MS_TENANT_ID</code>, <code>MS_CLIENT_ID</code> and <code>MS_CLIENT_SECRET</code>.</li>
           <li>Redeploy, reload this page, and run the check.</li>
         </ol>
@@ -207,6 +215,7 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
           <li>The delivery must show status <b>200</b>. This app recognizes test events and does not revoke anything for them.</li>
           <li>A <b>401</b> means the secret in <code>RIOT_WEBHOOK_SECRET</code> does not match the one in Riot.</li>
         </ol>
+        <RiotTestShot />
         <Tick id="riot-test" manual={manual} toggle={toggle}>Riot shows a successful test delivery</Tick>
       </Step>
 
