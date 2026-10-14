@@ -167,6 +167,7 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
         <h3>Give the key to this app</h3>
         <ol start={8}>
           <li>Add the environment variable <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and paste the full content of the JSON file.</li>
+          <li className="bare"><figure className="shot"><img src="/tutorial/vercel-env-google.jpg" alt="Paste the whole JSON file as the value, type Secret." loading="lazy" /><figcaption>Paste the whole JSON file as the value, type Secret.</figcaption></figure></li>
           <li>Redeploy and reload this page. Then run the check below with the email of any user in your domain.</li>
         </ol>
         <div className="check">
@@ -194,7 +195,8 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
           <li>Open <b>Certificates &amp; secrets → New client secret</b> and copy its <b>Value</b> right away. Note its expiry date: the app stops working when it expires.</li>
           <li>From the <b>Overview</b> page, copy the <b>Directory (tenant) ID</b> and the <b>Application (client) ID</b>.</li>
           <li className="bare"><EntraSecretShot /></li>
-          <li>Add three environment variables: <code>MS_TENANT_ID</code>, <code>MS_CLIENT_ID</code> and <code>MS_CLIENT_SECRET</code>.</li>
+          <li>Add three environment variables: <code>MS_TENANT_ID</code>, <code>MS_CLIENT_ID</code> and <code>MS_CLIENT_SECRET</code>. Tip: paste the three <code>KEY=value</code> lines into the Key field and Vercel splits them.</li>
+          <li className="bare"><figure className="shot"><img src="/tutorial/vercel-env-microsoft.jpg" alt="All three variables in one form, type Secret." loading="lazy" /><figcaption>All three variables in one form, type Secret.</figcaption></figure></li>
           <li>Redeploy, reload this page, and run the check.</li>
         </ol>
         <div className="check">
