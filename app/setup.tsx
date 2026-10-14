@@ -24,9 +24,9 @@ function useManual() {
       setManual(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"));
     } catch {}
   }, []);
-  const toggle = (key: string) =>
+  const toggle = (key: string, patch?: Record<string, boolean>) =>
     setManual((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
+      const next = { ...prev, ...(patch ?? { [key]: !prev[key] }) };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       } catch {}
@@ -179,8 +179,15 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
   const testState: State = manual["riot-test"] ? "done" : "todo";
   const activeState: State = manual["riot-enabled"] ? "done" : "todo";
 
-  const usesGoogle = Boolean(manual["use-google"]) || status.google !== "missing";
-  const usesMicrosoft = Boolean(manual["use-microsoft"]) || status.microsoft !== "missing";
+  const provider = manual["use-microsoft"] ? "microsoft"
+    : manual["use-google"] ? "google"
+    : status.google !== "missing" ? "google"
+    : status.microsoft !== "missing" ? "microsoft"
+    : null;
+  const usesGoogle = provider === "google";
+  const usesMicrosoft = provider === "microsoft";
+  const pick = (p: "google" | "microsoft") =>
+    toggle("", { "use-google": p === "google", "use-microsoft": p === "microsoft" });
   const chooseState: State = usesGoogle || usesMicrosoft ? "done" : "todo";
 
   const flow: [string, State][] = [
@@ -228,12 +235,12 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
           </Step>
 
           <Step {...stepProps("choose")} title="Choose your workspace">
-            <p>Where do your employees share files? Pick one or both.</p>
+            <p>Where do your employees share files? Pick one.</p>
             <div className="choices">
-              <button type="button" className="choice" aria-pressed={usesGoogle} disabled={status.google !== "missing"} onClick={() => toggle("use-google")}>
+              <button type="button" className="choice" aria-pressed={usesGoogle} onClick={() => pick("google")}>
                 Google Workspace
               </button>
-              <button type="button" className="choice" aria-pressed={usesMicrosoft} disabled={status.microsoft !== "missing"} onClick={() => toggle("use-microsoft")}>
+              <button type="button" className="choice" aria-pressed={usesMicrosoft} onClick={() => pick("microsoft")}>
                 Microsoft 365
               </button>
             </div>
