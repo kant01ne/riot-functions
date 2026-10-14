@@ -148,4 +148,4 @@ h1 { font-size: 28px; line-height: 34px; font-weight: 600; letter-spacing: -.02e
 .choice { flex: 1 1 200px; padding: 18px 20px; border-radius: 16px; border: 1px solid rgba(0,0,0,.12); background: #fff; font: inherit; font-weight: 500; text-align: left; cursor: pointer; }
 .choice[aria-pressed="true"] { border-color: #171717; box-shadow: 0 0 0 1px #171717; }
 .choice[aria-pressed="true"]::after { content: " ✓"; }
-.choice:disabled { cursor: default; }
+.choice:disabled { cursor: default; color: inherit; opacity: 1; }
