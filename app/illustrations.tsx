@@ -63,22 +63,6 @@ export function RiotEndpointShot({ url }: { url: string }) {
   );
 }
 
-export function VercelEnvShot({ name, value }: { name: string; value: string }) {
-  return (
-    <Window brand="vercel" nav={["General", "Domains", "Environment Variables", "Git"]} active="Environment Variables" caption="Vercel: add the variable to Production, save, then redeploy.">
-      <Title>Environment Variables</Title>
-      <div className="m-grid2">
-        <Field label="Key" value={name} hot />
-        <Field label="Value" value={value} hot />
-      </div>
-      <div className="m-row">
-        <span className="m-pill on">Production</span><span className="m-pill on">Preview</span><span className="m-pill">Development</span>
-        <span className="spacer" /><Btn primary hot>Save</Btn>
-      </div>
-      <div className="m-toast">Redeploy to apply the change. <Btn hot>Redeploy</Btn></div>
-    </Window>
-  );
-}
 
 export function GcpKeyShot() {
   return (
