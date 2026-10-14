@@ -55,7 +55,7 @@ h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: v
 ol { padding-left: 20px; margin: 8px 0; }
 li { margin: 8px 0; padding-left: 4px; }
 li::marker { color: var(--accent); font-weight: 600; }
-li.bare { list-style: none; margin-left: -24px; }
+li.bare { list-style: none; margin-left: -24px; counter-increment: list-item 0; }
 code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--todo-bg); padding: 2px 6px; border-radius: 6px; overflow-wrap: anywhere; }
 a { color: var(--accent); text-underline-offset: 3px; }
 .copy { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 100%; vertical-align: middle; }
