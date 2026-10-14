@@ -265,8 +265,10 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 title: "Create a service account",
                 body: (
                   <>
-                    <p>Name it <code>riot-sonar-revoker</code>, click <b>Done</b>. No role needed.</p>
                     <div className="actions"><Ext href="https://console.cloud.google.com/iam-admin/serviceaccounts/create" primary>Create service account</Ext></div>
+                    <p>Service account name:</p>
+                    <Copy value="riot-sonar-revoker" />
+                    <p>Click <b>Create and close</b>. Skip permissions, no role needed.</p>
                   </>
                 ),
                 media: <Shot src="/tutorial/gcp-create-sa.jpg" alt="Create the service account" />,
