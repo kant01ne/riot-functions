@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ConfigStatus } from "@/lib/config";
-import { EntraPermissionsShot, EntraSecretShot, GcpKeyShot, RiotTestShot } from "./illustrations";
+import { EntraSecretShot, GcpKeyShot, RiotTestShot } from "./illustrations";
 
 type State = "done" | "todo" | "error" | "skipped";
 type Check = { ok: boolean; message: string } | null;
@@ -335,16 +335,27 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 media: <Shot src="/tutorial/entra-register.jpg" alt="Entra Register an application form" />,
               },
               {
-                title: "Grant Files.ReadWrite.All",
+                title: "Add the Files.ReadWrite.All permission",
                 body: (
                   <>
                     <div className="actions"><Ext href={ENTRA_APPS} primary>Open app registrations</Ext></div>
-                    <p>Open <b>Riot Sonar Revoker → API permissions → Add a permission → Microsoft Graph → Application permissions</b>, search and tick:</p>
+                    <p>Open <b>Riot Sonar Revoker → API permissions → Add a permission</b>.</p>
+                    <p>Pick <b>Microsoft Graph → Application permissions</b>, search and tick:</p>
                     <Copy value="Files.ReadWrite.All" />
-                    <p>Click <b>Add permissions</b>, remove <code>User.Read</code> with <b>⋯</b>, then <b>Grant admin consent</b>.</p>
+                    <p>Click <b>Add permissions</b>.</p>
                   </>
                 ),
-                media: <EntraPermissionsShot />,
+                media: <Shot src="/tutorial/entra-add-permission.jpg" alt="Request API permissions with Files.ReadWrite.All ticked" />,
+              },
+              {
+                title: "Grant admin consent",
+                body: (
+                  <>
+                    <p>Back on <b>API permissions</b>, remove <code>User.Read</code> with <b>⋯</b>.</p>
+                    <p>Click <b>Grant admin consent</b> and confirm. The status turns green.</p>
+                  </>
+                ),
+                media: <Shot src="/tutorial/entra-api-permissions.jpg" alt="API permissions blade with Grant admin consent" />,
               },
               {
                 title: "Create a client secret and copy the IDs",
