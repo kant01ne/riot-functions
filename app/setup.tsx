@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ConfigStatus } from "@/lib/config";
-import { EntraSecretShot, RiotTestShot } from "./illustrations";
+import { EntraSecretShot } from "./illustrations";
 
 type State = "done" | "todo" | "error" | "skipped";
 type Check = { ok: boolean; message: string } | null;
@@ -167,25 +167,41 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
     setBusy(null);
   };
 
-  const providerState = (configured: string, checkResult: Check, skippedKey: string): State => {
-    if (configured === "missing") return manual[skippedKey] ? "skipped" : "todo";
+  const providerState = (configured: string, checkResult: Check): State => {
+    if (configured === "missing") return "todo";
     if (configured !== "ok" || checkResult?.ok === false) return "error";
     return checkResult?.ok ? "done" : "todo";
   };
 
   const riotState: State = status.riotSecret === "ok" ? "done" : status.riotSecret === "invalid" ? "error" : "todo";
-  const googleState = providerState(status.google, googleCheck, "skip-google");
-  const msState = providerState(status.microsoft, msCheck, "skip-microsoft");
+  const googleState = providerState(status.google, googleCheck);
+  const msState = providerState(status.microsoft, msCheck);
   const testState: State = manual["riot-test"] ? "done" : "todo";
   const activeState: State = manual["riot-enabled"] ? "done" : "todo";
 
-  const states: State[] = ["done", riotState, googleState, msState, testState, activeState];
-  const doneCount = states.filter((s) => s === "done" || s === "skipped").length;
-  const firstOpen = states.findIndex((s) => s !== "done" && s !== "skipped");
+  const usesGoogle = Boolean(manual["use-google"]) || status.google !== "missing";
+  const usesMicrosoft = Boolean(manual["use-microsoft"]) || status.microsoft !== "missing";
+  const chooseState: State = usesGoogle || usesMicrosoft ? "done" : "todo";
+
+  const flow: [string, State][] = [
+    ["deploy", "done"],
+    ["choose", chooseState],
+    ["riot", riotState],
+    ...(usesGoogle ? [["google", googleState] as [string, State]] : []),
+    ...(usesMicrosoft ? [["microsoft", msState] as [string, State]] : []),
+    ["test", testState],
+    ["active", activeState],
+  ];
+  const states = flow.map(([, st]) => st);
+  const doneCount = states.filter((st) => st === "done").length;
+  const firstOpen = states.findIndex((st) => st !== "done");
 
   const [open, setOpen] = useState<number | null>(null);
   useEffect(() => setOpen(firstOpen === -1 ? null : firstOpen), [firstOpen]);
-  const stepProps = (i: number) => ({ state: states[i], open: open === i, onToggle: () => setOpen(open === i ? null : i) });
+  const stepProps = (key: string) => {
+    const i = flow.findIndex(([k]) => k === key);
+    return { state: states[i], open: open === i, onToggle: () => setOpen(open === i ? null : i) };
+  };
 
   return (
     <main>
@@ -207,11 +223,23 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
         </div>
 
         <div className="steps">
-          <Step {...stepProps(0)} title="Deploy this app">
+          <Step {...stepProps("deploy")} title="Deploy this app">
             <p>This page is running, so the deployment worked. Nothing to do here.</p>
           </Step>
 
-          <Step {...stepProps(1)} title="Create the webhook endpoint in Riot"
+          <Step {...stepProps("choose")} title="Choose your workspace">
+            <p>Where do your employees share files? Pick one or both.</p>
+            <div className="choices">
+              <button type="button" className="choice" aria-pressed={usesGoogle} disabled={status.google !== "missing"} onClick={() => toggle("use-google")}>
+                Google Workspace
+              </button>
+              <button type="button" className="choice" aria-pressed={usesMicrosoft} disabled={status.microsoft !== "missing"} onClick={() => toggle("use-microsoft")}>
+                Microsoft 365
+              </button>
+            </div>
+          </Step>
+
+          <Step {...stepProps("riot")} title="Create the webhook endpoint in Riot"
             summary={riotState === "error" ? <><code>RIOT_WEBHOOK_SECRET</code> must start with <code>whsec_</code>.</> : undefined}
             steps={[
               {
@@ -248,7 +276,7 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
             ]}
           />
 
-          <Step {...stepProps(2)} title="Connect Google Workspace"
+          {usesGoogle && <Step {...stepProps("google")} title="Connect Google Workspace"
             summary={status.google === "invalid" ? <><code>GOOGLE_SERVICE_ACCOUNT_JSON</code> is set but is not a valid service account key.</> : googleCheck?.message}
             steps={[
               {
@@ -322,10 +350,9 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
               ),
             ]}
           >
-            {status.google === "missing" && <Tick id="skip-google" manual={manual} toggle={toggle}>We do not use Google Drive</Tick>}
-          </Step>
+          </Step>}
 
-          <Step {...stepProps(3)} title="Connect Microsoft 365"
+          {usesMicrosoft && <Step {...stepProps("microsoft")} title="Connect Microsoft 365"
             summary={status.microsoft === "partial" ? <><code>MS_TENANT_ID</code>, <code>MS_CLIENT_ID</code> and <code>MS_CLIENT_SECRET</code> must all be set.</> : msCheck?.message}
             steps={[
               {
@@ -391,28 +418,28 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
               ),
             ]}
           >
-            {status.microsoft === "missing" && <Tick id="skip-microsoft" manual={manual} toggle={toggle}>We do not use OneDrive or SharePoint</Tick>}
-          </Step>
+          </Step>}
 
-          <Step {...stepProps(4)} title="Send a test event from Riot"
+          <Step {...stepProps("test")} title="Send a test event from Riot"
             steps={[
               {
                 title: "Send a test event",
                 body: (
                   <>
                     <div className="actions"><Ext href={HUB_SETTINGS} primary>Open Riot settings</Ext></div>
-                    <p><b>API</b> tab → your endpoint → <b>Send test event</b>. The delivery must show <b>200</b>. Nothing is revoked.</p>
+                    <p>In the <b>API</b> tab, click <b>⋯</b> on your endpoint, then <b>Send test</b>.</p>
+                    <p>Pick <code>{EVENT_TYPE}</code> and click <b>Send test</b>. Riot must show <b>Your endpoint accepted the test</b>. Nothing is revoked.</p>
                     <p className="note">A 401 means <code>RIOT_WEBHOOK_SECRET</code> does not match the secret in Riot.</p>
                   </>
                 ),
-                media: <RiotTestShot />,
+                media: <Shot src="/tutorial/riot-send-test.jpg" alt="Riot endpoint menu with Send test" />,
               },
             ]}
           >
-            <Tick id="riot-test" manual={manual} toggle={toggle}>Riot shows a successful test delivery</Tick>
+            <Tick id="riot-test" manual={manual} toggle={toggle}>Riot says “Your endpoint accepted the test”</Tick>
           </Step>
 
-          <Step {...stepProps(5)} title="Switch your workspace to webhook mode">
+          <Step {...stepProps("active")} title="Switch your workspace to webhook mode">
             <p>
               Ask your Riot account manager to switch Sonar revocations to webhook mode. Every revocation from the hub, the employee
               Portal or auto-revocation is then sent here, and Riot only asks for read-only scopes.

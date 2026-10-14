@@ -143,3 +143,9 @@ h1 { font-size: 28px; line-height: 34px; font-weight: 600; letter-spacing: -.02e
 .shot figcaption { font-size: 13px; padding: 8px 12px; opacity: .7; }
 .shots .shot { margin: 0; }
 .shot.narrow { max-width: 480px; }
+
+.choices { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.choice { flex: 1 1 200px; padding: 18px 20px; border-radius: 16px; border: 1px solid rgba(0,0,0,.12); background: #fff; font: inherit; font-weight: 500; text-align: left; cursor: pointer; }
+.choice[aria-pressed="true"] { border-color: #171717; box-shadow: 0 0 0 1px #171717; }
+.choice[aria-pressed="true"]::after { content: " ✓"; }
+.choice:disabled { cursor: default; }
