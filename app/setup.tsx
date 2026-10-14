@@ -13,6 +13,8 @@ const EVENT_TYPE = "revoke_drive_item_permission_request.created";
 const vercelLink = (path: string, title: string) =>
   `https://vercel.com/d?to=${encodeURIComponent(`/[team]/[project]/${path}`)}&title=${encodeURIComponent(title)}`;
 const VERCEL_ENV = vercelLink("settings/environment-variables", "Add an environment variable");
+const HUB_SETTINGS = "https://hub.tryriot.com/settings/about";
+const ENTRA_APPS = "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade";
 const VERCEL_DEPLOYMENTS = vercelLink("deployments", "Redeploy");
 
 function useManual() {
@@ -216,24 +218,27 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 title: "Create the endpoint in Riot",
                 body: (
                   <>
-                    <p>In the Riot hub, open <b>Settings → API</b> and click <b>Create endpoint</b>. Paste this URL:</p>
+                    <div className="actions"><Ext href={HUB_SETTINGS} primary>Open Riot settings</Ext></div>
+                    <p>Click <b>API</b> in the left menu, then <b>Create endpoint</b>.</p>
+                    <p>Name: <code>Sonar revoker</code>. Endpoint URL:</p>
                     <Copy value={webhookUrl} />
-                    <p>Select only this event:</p>
-                    <Copy value={EVENT_TYPE} />
+                    <p>Tick only <b>{EVENT_TYPE}</b>, then <b>Create endpoint</b>.</p>
                   </>
                 ),
                 media: <Shot src="/tutorial/riot-create-endpoint.jpg" alt="Riot Create endpoint form" />,
               },
               {
                 title: "Copy the signing secret",
-                body: <p>Riot shows the secret once, right after you create the endpoint. It starts with <code>whsec_</code>.</p>,
+                body: <p>Riot shows the secret once. Click the copy button next to it and keep the tab open.</p>,
                 media: <Shot src="/tutorial/riot-signing-secret.jpg" alt="Riot Save signing secret dialog" />,
               },
               {
                 title: <>Add it to Vercel as <code>RIOT_WEBHOOK_SECRET</code></>,
                 body: (
                   <>
-                    <p>When you rotate secrets in Riot, put both values separated by a comma.</p>
+                    <p>Key:</p>
+                    <Copy value="RIOT_WEBHOOK_SECRET" />
+                    <p>Value: paste the secret. Click <b>Save</b>.</p>
                     <div className="actions"><Ext href={VERCEL_ENV} primary>Open environment variables</Ext></div>
                   </>
                 ),
@@ -258,19 +263,30 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
               },
               {
                 title: "Create a service account",
-                body: <p>In <b>IAM &amp; Admin → Service Accounts</b>. It needs no project role.</p>,
+                body: (
+                  <>
+                    <p>Name it <code>riot-sonar-revoker</code>, click <b>Done</b>. No role needed.</p>
+                    <div className="actions"><Ext href="https://console.cloud.google.com/iam-admin/serviceaccounts/create" primary>Create service account</Ext></div>
+                  </>
+                ),
                 media: <Shot src="/tutorial/gcp-create-sa.jpg" alt="Create the service account" />,
               },
               {
                 title: "Download a JSON key and copy the Unique ID",
-                body: <p>Open the account, then <b>Keys → Add key → JSON</b>. The <b>Unique ID</b> on the details page is the OAuth client ID.</p>,
+                body: (
+                  <>
+                    <p>Click the account, open <b>Keys → Add key → Create new key → JSON</b>. A file downloads.</p>
+                    <p>Back on <b>Details</b>, copy the <b>Unique ID</b>. You need it next.</p>
+                    <div className="actions"><Ext href="https://console.cloud.google.com/iam-admin/serviceaccounts" primary>Open service accounts</Ext></div>
+                  </>
+                ),
                 media: <GcpKeyShot />,
               },
               {
                 title: "Allow domain-wide delegation",
                 body: (
                   <>
-                    <p>As a super admin, click <b>Add new</b>, paste the client ID and this scope:</p>
+                    <p>Click <b>Add new</b>. Client ID: the Unique ID. OAuth scope:</p>
                     <Copy value="https://www.googleapis.com/auth/drive" />
                     <div className="actions"><Ext href="https://admin.google.com/ac/owl/domainwidedelegation" primary>Open Admin console</Ext></div>
                     <p className="note">Delegation can take a few minutes to apply.</p>
@@ -282,7 +298,9 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 title: <>Add the key to Vercel as <code>GOOGLE_SERVICE_ACCOUNT_JSON</code></>,
                 body: (
                   <>
-                    <p>Paste the whole JSON file as the value.</p>
+                    <p>Key:</p>
+                    <Copy value="GOOGLE_SERVICE_ACCOUNT_JSON" />
+                    <p>Value: open the downloaded file, paste all of it. Click <b>Save</b>.</p>
                     <div className="actions"><Ext href={VERCEL_ENV} primary>Open environment variables</Ext></div>
                   </>
                 ),
@@ -321,23 +339,29 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 title: "Grant Files.ReadWrite.All",
                 body: (
                   <>
-                    <p><b>API permissions → Add a permission → Microsoft Graph → Application permissions</b>:</p>
+                    <div className="actions"><Ext href={ENTRA_APPS} primary>Open app registrations</Ext></div>
+                    <p>Open <b>Riot Sonar Revoker → API permissions → Add a permission → Microsoft Graph → Application permissions</b>, search and tick:</p>
                     <Copy value="Files.ReadWrite.All" />
-                    <p>Remove the default <code>User.Read</code>, then click <b>Grant admin consent</b>.</p>
+                    <p>Click <b>Add permissions</b>, remove <code>User.Read</code> with <b>⋯</b>, then <b>Grant admin consent</b>.</p>
                   </>
                 ),
                 media: <EntraPermissionsShot />,
               },
               {
                 title: "Create a client secret and copy the IDs",
-                body: <p><b>Certificates &amp; secrets → New client secret</b>, copy its <b>Value</b> and note its expiry. From <b>Overview</b>, copy the tenant ID and the client ID.</p>,
+                body: (
+                  <>
+                    <p><b>Certificates &amp; secrets → New client secret → Add</b>. Copy the <b>Value</b> column right away, it is shown once.</p>
+                    <p>On <b>Overview</b>, keep <b>Application (client) ID</b> and <b>Directory (tenant) ID</b> at hand.</p>
+                  </>
+                ),
                 media: <EntraSecretShot />,
               },
               {
                 title: "Add the three values to Vercel",
                 body: (
                   <>
-                    <p>Paste these lines in the Key field, Vercel splits them:</p>
+                    <p>Copy this, paste it in the <b>Key</b> field, Vercel splits it into three rows. Fill the three values, then <b>Save</b>.</p>
                     <Copy value={"MS_TENANT_ID=\nMS_CLIENT_ID=\nMS_CLIENT_SECRET="} />
                     <div className="actions"><Ext href={VERCEL_ENV} primary>Open environment variables</Ext></div>
                   </>
@@ -362,7 +386,8 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 title: "Send a test event",
                 body: (
                   <>
-                    <p>In Riot, open the endpoint and click <b>Send test event</b>. The delivery must show <b>200</b>. Test events never revoke anything.</p>
+                    <div className="actions"><Ext href={HUB_SETTINGS} primary>Open Riot settings</Ext></div>
+                    <p><b>API</b> → your endpoint → <b>Send test event</b>. The delivery must show <b>200</b>. Nothing is revoked.</p>
                     <p className="note">A 401 means <code>RIOT_WEBHOOK_SECRET</code> does not match the secret in Riot.</p>
                   </>
                 ),
