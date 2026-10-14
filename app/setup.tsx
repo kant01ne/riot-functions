@@ -81,15 +81,16 @@ const redeploy = (extra?: React.ReactNode): SubStep => ({
   title: "Redeploy, then reload this page",
   body: (
     <>
-      <p>Environment variables only apply to new deployments. Open the latest deployment menu <b>⋯</b> and click <b>Redeploy</b>.</p>
+      <p>After saving, Vercel shows a blue box. Click <b>Redeploy</b> in it, then <b>Redeploy</b> again to confirm.</p>
+      <p className="note">Box gone? Open deployments, click <b>⋯</b> on the latest one, then <b>Redeploy</b>.</p>
       <div className="actions">
-        <Ext href={VERCEL_DEPLOYMENTS} primary>Open deployments</Ext>
+        <Ext href={VERCEL_DEPLOYMENTS}>Open deployments</Ext>
         <button type="button" className="btn" onClick={() => location.reload()}>Reload this page</button>
       </div>
       {extra}
     </>
   ),
-  media: <Shot src="/tutorial/vercel-redeploy.jpg" alt="Vercel deployment menu with Redeploy" />,
+  media: <Shot src="/tutorial/vercel-redeploy-toast.jpg" alt="Vercel Redeploy button after adding a variable" />,
 });
 
 const STATUS: Partial<Record<State, string>> = { error: "Needs attention", skipped: "Skipped" };
@@ -218,7 +219,7 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 body: (
                   <>
                     <div className="actions"><Ext href={HUB_SETTINGS} primary>Open Riot settings</Ext></div>
-                    <p>Click <b>API</b> in the left menu, then <b>Create endpoint</b>.</p>
+                    <p>Click the <b>API</b> tab at the top, then <b>Create endpoint</b>.</p>
                     <p>Name: <code>Sonar revoker</code>. Endpoint URL:</p>
                     <Copy value={webhookUrl} />
                     <p>Tick only <b>{EVENT_TYPE}</b>, then <b>Create endpoint</b>.</p>
@@ -397,7 +398,7 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 body: (
                   <>
                     <div className="actions"><Ext href={HUB_SETTINGS} primary>Open Riot settings</Ext></div>
-                    <p><b>API</b> → your endpoint → <b>Send test event</b>. The delivery must show <b>200</b>. Nothing is revoked.</p>
+                    <p><b>API</b> tab → your endpoint → <b>Send test event</b>. The delivery must show <b>200</b>. Nothing is revoked.</p>
                     <p className="note">A 401 means <code>RIOT_WEBHOOK_SECRET</code> does not match the secret in Riot.</p>
                   </>
                 ),
