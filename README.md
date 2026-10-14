@@ -2,7 +2,7 @@
 
 Riot Sonar finds risky sharing on Google Drive, OneDrive and SharePoint. Some companies do not want to give Riot write access to their files. In webhook mode, Riot only reads, and sends a signed `revoke_drive_item_permission_request.created` webhook each time a permission must be removed. This app receives that webhook and removes the permission with credentials that stay in your cloud.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ftryriot%2Friot-sonar-revoker&project-name=riot-sonar-revoker)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkant01ne%2Friot-sonar-revoker&project-name=riot-sonar-revoker)
 
 After the deployment, open the app URL. The home page walks the admin through the setup and shows which steps are done.
 
