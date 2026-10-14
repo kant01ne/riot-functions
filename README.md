@@ -4,7 +4,9 @@ Receives Riot Sonar revocation webhooks and removes the Google Drive or Microsof
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkant01ne%2Friot-sonar-revoker&project-name=riot-sonar-revoker)
 
-Once deployed, open the app URL and follow the setup steps.
+<img src="public/tutorial/vercel-clone.jpg" width="480" alt="Vercel clone screen">
+
+Pick a repository name and click Create. Once deployed, open the app URL and follow the setup steps.
 
 ## Environment variables
 

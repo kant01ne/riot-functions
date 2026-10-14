@@ -127,6 +127,7 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
       <Step n={1} title="Deploy this app" state="done" summary="This page is running, so the deployment worked.">
         <p>Your webhook URL is:</p>
         <Copy value={webhookUrl} />
+        <figure className="shot narrow"><img src="/tutorial/vercel-clone.jpg" alt="Vercel clone screen" loading="lazy" /><figcaption>The deploy button opens this screen. Pick a repository name and click Create.</figcaption></figure>
       </Step>
 
       <Step n={2} title="Create the webhook endpoint in Riot" state={riotState}
