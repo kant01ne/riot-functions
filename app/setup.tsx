@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ConfigStatus } from "@/lib/config";
-import { EntraSecretShot, GcpKeyShot, RiotTestShot } from "./illustrations";
+import { EntraSecretShot, RiotTestShot } from "./illustrations";
 
 type State = "done" | "todo" | "error" | "skipped";
 type Check = { ok: boolean; message: string } | null;
@@ -277,12 +277,13 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
                 title: "Download a JSON key and copy the Unique ID",
                 body: (
                   <>
-                    <p>Click the account, open <b>Keys → Add key → Create new key → JSON</b>. A file downloads.</p>
-                    <p>Back on <b>Details</b>, copy the <b>Unique ID</b>. You need it next.</p>
                     <div className="actions"><Ext href="https://console.cloud.google.com/iam-admin/serviceaccounts" primary>Open service accounts</Ext></div>
+                    <p>Click <b>riot-sonar-revoker</b>, then the <b>Keys</b> tab.</p>
+                    <p><b>Add key → Create new key → JSON → Create</b>. A file downloads.</p>
+                    <p>Open the <b>Details</b> tab and copy the <b>Unique ID</b>. You need it next.</p>
                   </>
                 ),
-                media: <GcpKeyShot />,
+                media: <Shot src="/tutorial/gcp-add-key.jpg" alt="Keys tab with Add key, Create new key" />,
               },
               {
                 title: "Allow domain-wide delegation",
