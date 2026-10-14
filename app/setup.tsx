@@ -2,13 +2,18 @@
 
 import { useEffect, useState } from "react";
 import type { ConfigStatus } from "@/lib/config";
-import { EntraPermissionsShot, EntraSecretShot, GcpKeyShot, RiotEndpointShot, RiotTestShot } from "./illustrations";
+import { EntraPermissionsShot, EntraSecretShot, GcpKeyShot, RiotTestShot } from "./illustrations";
 
 type State = "done" | "todo" | "error" | "skipped";
 type Check = { ok: boolean; message: string } | null;
+type SubStep = { title: React.ReactNode; body?: React.ReactNode; media?: React.ReactNode };
 
 const STORAGE_KEY = "riot-sonar-revoker:manual";
 const EVENT_TYPE = "revoke_drive_item_permission_request.created";
+const vercelLink = (path: string, title: string) =>
+  `https://vercel.com/d?to=${encodeURIComponent(`/[team]/[project]/${path}`)}&title=${encodeURIComponent(title)}`;
+const VERCEL_ENV = vercelLink("settings/environment-variables", "Add an environment variable");
+const VERCEL_DEPLOYMENTS = vercelLink("deployments", "Redeploy");
 
 function useManual() {
   const [manual, setManual] = useState<Record<string, boolean>>({});
@@ -28,35 +33,105 @@ function useManual() {
   return { manual, toggle };
 }
 
-function Copy({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
+const CheckIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 8.5l3 3 6-7" /></svg>
+);
+const CopyIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="2" /><path d="M10.5 3.5v-.5a1.5 1.5 0 00-1.5-1.5H4A1.5 1.5 0 002.5 3v5A1.5 1.5 0 004 9.5h.5" /></svg>
+);
+const ExternalIcon = () => (
+  <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M6 3.5H3.5v9h9V10M9 3.5h3.5V7M12.5 3.5L7 9" /></svg>
+);
+const Chevron = ({ open }: { open: boolean }) => (
+  <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" className="chevron" style={{ transform: open ? "rotate(180deg)" : undefined }}><path d="M4 6l4 4 4-4" /></svg>
+);
+
+function ProgressCircle({ percent }: { percent: number }) {
+  const c = 2 * Math.PI * 8;
   return (
-    <span className="copy">
-      <code>{value}</code>
-      <button
-        type="button"
-        onClick={() => navigator.clipboard.writeText(value).then(() => (setCopied(true), setTimeout(() => setCopied(false), 1500)))}
-      >
-        {copied ? "Copied" : "Copy"}
-      </button>
-    </span>
+    <svg viewBox="0 0 20 20" width="20" height="20">
+      <circle cx="10" cy="10" r="8" fill="none" stroke="var(--gray-200)" strokeWidth="2.5" />
+      <circle cx="10" cy="10" r="8" fill="none" stroke="var(--green)" strokeWidth="2.5" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - percent)} transform="rotate(-90 10 10)" style={{ transition: "stroke-dashoffset .4s" }} />
+    </svg>
   );
 }
 
-const LABEL: Record<State, string> = { done: "Done", todo: "To do", error: "Needs attention", skipped: "Not used" };
-
-function Step(props: { n: number; title: string; state: State; summary?: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(props.state !== "done" && props.state !== "skipped");
-  useEffect(() => setOpen(props.state !== "done" && props.state !== "skipped"), [props.state]);
+function Copy({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
   return (
-    <section className={`step ${props.state}`}>
-      <button type="button" className="step-head" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className="dot">{props.state === "done" ? "✓" : props.state === "error" ? "!" : props.n}</span>
-        <span className="step-title">{props.title}</span>
-        <span className={`badge ${props.state}`}>{LABEL[props.state]}</span>
+    <div className="copy">
+      <code>{value}</code>
+      <button type="button" aria-label="Copy" onClick={() => navigator.clipboard.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })}>
+        {copied ? <CheckIcon /> : <CopyIcon />}
       </button>
-      {props.summary && <p className="summary">{props.summary}</p>}
-      {open && <div className="step-body">{props.children}</div>}
+    </div>
+  );
+}
+
+const Ext = ({ href, children, primary }: { href: string; children: React.ReactNode; primary?: boolean }) => (
+  <a className={`btn ${primary ? "primary" : ""}`} href={href} target="_blank" rel="noreferrer">{children}<ExternalIcon /></a>
+);
+
+const Shot = ({ src, alt }: { src: string; alt: string }) => <img className="media-img" src={src} alt={alt} />;
+
+const redeploy = (extra?: React.ReactNode): SubStep => ({
+  title: "Redeploy, then reload this page",
+  body: (
+    <>
+      <p>Environment variables only apply to new deployments. Open the latest deployment menu <b>⋯</b> and click <b>Redeploy</b>.</p>
+      <div className="actions">
+        <Ext href={VERCEL_DEPLOYMENTS} primary>Open deployments</Ext>
+        <button type="button" className="btn" onClick={() => location.reload()}>Reload this page</button>
+      </div>
+      {extra}
+    </>
+  ),
+  media: <Shot src="/tutorial/vercel-redeploy.jpg" alt="Vercel deployment menu with Redeploy" />,
+});
+
+const STATUS: Partial<Record<State, string>> = { error: "Needs attention", skipped: "Skipped" };
+
+function Step(props: {
+  state: State; title: string; summary?: React.ReactNode; open: boolean; onToggle: () => void; steps?: SubStep[]; children?: React.ReactNode;
+}) {
+  const [active, setActive] = useState(0);
+  const finished = props.state === "done" || props.state === "skipped";
+  const media = props.steps?.[active]?.media;
+  return (
+    <section className={`step ${props.state} ${props.open ? "open" : ""}`}>
+      <button type="button" className="step-head" onClick={props.onToggle} aria-expanded={props.open}>
+        <span className="dot">{finished ? <CheckIcon /> : props.state === "error" ? "!" : null}</span>
+        <span className="step-title">{props.title}</span>
+        {STATUS[props.state] && <span className={`pill ${props.state}`}>{STATUS[props.state]}</span>}
+        <Chevron open={props.open} />
+      </button>
+      {props.open && (
+        <div className={`step-body ${media ? "with-media" : ""}`}>
+          <div className="sub-list">
+            {props.summary && <p className={`banner ${props.state}`}>{props.summary}</p>}
+            {props.steps?.map((s, i) => (
+              <div key={i} className={`sub ${i === active ? "active" : ""} ${i < active ? "past" : ""}`}>
+                <button type="button" className="sub-head" onClick={() => setActive(i)}>
+                  <span className="sub-n">{i < active ? <CheckIcon /> : i + 1}</span>
+                  <span>{s.title}</span>
+                </button>
+                {i === active && (
+                  <div className="sub-body">
+                    {s.body}
+                    {media && <div className="media-inline">{media}</div>}
+                    {i < props.steps!.length - 1 && (
+                      <div className="actions"><button type="button" className="btn" onClick={() => setActive(i + 1)}>Next</button></div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            {props.children}
+          </div>
+          {media && <div className="media">{media}</div>}
+        </div>
+      )}
     </section>
   );
 }
@@ -98,141 +173,219 @@ export function Setup({ status, webhookUrl }: { status: ConfigStatus; webhookUrl
   const riotState: State = status.riotSecret === "ok" ? "done" : status.riotSecret === "invalid" ? "error" : "todo";
   const googleState = providerState(status.google, googleCheck, "skip-google");
   const msState = providerState(status.microsoft, msCheck, "skip-microsoft");
-  const providerReady = [googleState, msState].includes("done") && ![googleState, msState].includes("todo") && ![googleState, msState].includes("error");
   const testState: State = manual["riot-test"] ? "done" : "todo";
   const activeState: State = manual["riot-enabled"] ? "done" : "todo";
 
-  const states = [riotState, googleState, msState, testState, activeState];
-  const doneCount = 1 + states.filter((s) => s === "done" || s === "skipped").length;
-  const total = states.length + 1;
+  const states: State[] = ["done", riotState, googleState, msState, testState, activeState];
+  const doneCount = states.filter((s) => s === "done" || s === "skipped").length;
+  const firstOpen = states.findIndex((s) => s !== "done" && s !== "skipped");
+
+  const [open, setOpen] = useState<number | null>(null);
+  useEffect(() => setOpen(firstOpen === -1 ? null : firstOpen), [firstOpen]);
+  const stepProps = (i: number) => ({ state: states[i], open: open === i, onToggle: () => setOpen(open === i ? null : i) });
 
   return (
     <main>
-      <div className="glow" />
       <header className="hero">
-        <p className="eyebrow"><span className="logo-dot" />Riot Sonar</p>
-        <h1>Permission revoker setup</h1>
+        <p className="eyebrow"><span className="logo">R</span>Riot Sonar</p>
+        <h1>Permission revoker</h1>
         <p className="lead">
-          This app receives revocation requests from Riot Sonar and removes the sharing permission in your Google Workspace or
-          Microsoft 365 tenant. Riot only needs read access. The write access stays in your cloud.
-        </p>
-        <div className="progress" role="progressbar" aria-valuenow={doneCount} aria-valuemin={0} aria-valuemax={total}>
-          <div style={{ width: `${(doneCount / total) * 100}%` }} />
-        </div>
-        <p className="progress-label">
-          {doneCount} of {total} steps done{doneCount === total ? ". You are all set." : ""}
+          Receives revocation requests from Riot Sonar and removes the sharing in Google Drive or Microsoft 365. Riot keeps
+          read-only access, write access stays in your cloud.
         </p>
       </header>
 
-      <Step n={1} title="Deploy this app" state="done" summary="This page is running, so the deployment worked.">
-        <p>Your webhook URL is:</p>
-        <Copy value={webhookUrl} />
-      </Step>
-
-      <Step n={2} title="Create the webhook endpoint in Riot" state={riotState}
-        summary={riotState === "done" ? "RIOT_WEBHOOK_SECRET is set." : riotState === "error" ? "RIOT_WEBHOOK_SECRET must start with whsec_." : undefined}>
-        <ol>
-          <li>In Riot, open <b>Settings → API → Webhooks</b> and click <b>Add endpoint</b>.</li>
-          <li>Paste this URL: <Copy value={webhookUrl} /></li>
-          <li>Select only the event type <Copy value={EVENT_TYPE} /></li>
-          <li>Save, then copy the <b>signing secret</b>. It starts with <code>whsec_</code>.</li>
-          <li>
-            In your Vercel project, open <b>Settings → Environment Variables</b> and add <code>RIOT_WEBHOOK_SECRET</code> with this
-            secret. When you rotate secrets in Riot, put both secrets in the variable, separated by a comma.
-          </li>
-          <li>Redeploy (<b>Deployments → ⋯ → Redeploy</b>) and reload this page.</li>
-        </ol>
-        <div className="shots"><RiotEndpointShot url={webhookUrl} /><figure className="shot"><img src="/tutorial/vercel-env.jpg" alt="Vercel Add Environment Variable form" loading="lazy" /><figcaption>Vercel → Settings → Environment Variables → Add</figcaption></figure></div>
-      </Step>
-
-      <Step n={3} title="Connect Google Workspace" state={googleState}
-        summary={status.google === "invalid" ? "GOOGLE_SERVICE_ACCOUNT_JSON is set but is not a valid service account key." : googleCheck?.message}>
-        <p>Skip this step if your company does not use Google Drive.</p>
-        <h3>Create the service account</h3>
-        <ol>
-          <li>In the <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noreferrer">Google Cloud console</a>, create a project, for example <code>riot-sonar-revoker</code>.</li>
-          <li>Enable the <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noreferrer">Google Drive API</a> in that project.</li>
-          <li>Open <b>IAM &amp; Admin → Service Accounts</b> and create a service account. It needs no project role.</li>
-          <li>Open it, go to <b>Keys → Add key → Create new key → JSON</b>. A JSON file downloads.</li>
-          <li>On the service account details page, copy the <b>Unique ID</b>. This is the OAuth client ID.</li>
-        </ol>
-        <div className="shots"><figure className="shot"><img src="/tutorial/gcp-enable-drive.jpg" alt="Enable the Google Drive API" loading="lazy" /><figcaption>Enable the Google Drive API</figcaption></figure><figure className="shot"><img src="/tutorial/gcp-create-sa.jpg" alt="Create the service account" loading="lazy" /><figcaption>Create the service account</figcaption></figure></div>
-        <GcpKeyShot />
-        <h3>Allow it to act on Drive files</h3>
-        <ol start={6}>
-          <li>As a super admin, open <a href="https://admin.google.com/ac/owl/domainwidedelegation" target="_blank" rel="noreferrer">Admin console → Security → API controls → Domain-wide delegation</a>.</li>
-          <li>Click <b>Add new</b>, paste the client ID, and add this scope: <Copy value="https://www.googleapis.com/auth/drive" /></li>
-        </ol>
-        <figure className="shot narrow"><img src="/tutorial/google-delegation.jpg" alt="Add new client ID with the Drive scope" loading="lazy" /><figcaption>Add new client ID with the Drive scope</figcaption></figure>
-        <h3>Give the key to this app</h3>
-        <ol start={8}>
-          <li>Add the environment variable <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and paste the full content of the JSON file.</li>
-          <li className="bare"><figure className="shot"><img src="/tutorial/vercel-env-google.jpg" alt="Paste the whole JSON file as the value, type Secret." loading="lazy" /><figcaption>Paste the whole JSON file as the value, type Secret.</figcaption></figure></li>
-          <li>Redeploy and reload this page. Then run the check below with the email of any user in your domain.</li>
-        </ol>
-        <div className="check">
-          <input type="email" placeholder="someone@yourcompany.com" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} />
-          <button type="button" disabled={status.google !== "ok" || busy !== null} onClick={() => check("google")}>
-            {busy === "google" ? "Checking…" : "Check Google"}
-          </button>
+      <div className="card">
+        <div className="card-head">
+          <ProgressCircle percent={doneCount / states.length} />
+          <span className="primary">Set up</span>
+          <span>·</span>
+          <span>{doneCount} of {states.length} completed</span>
         </div>
-        {googleCheck && <p className={googleCheck.ok ? "ok" : "ko"}>{googleCheck.message}</p>}
-        {status.google === "missing" && (
-          <Tick id="skip-google" manual={manual} toggle={toggle}>We do not use Google Drive</Tick>
-        )}
-        <p className="note">Delegation can take a few minutes to apply after you save it in the Admin console.</p>
-      </Step>
 
-      <Step n={4} title="Connect Microsoft 365" state={msState}
-        summary={status.microsoft === "partial" ? "MS_TENANT_ID, MS_CLIENT_ID and MS_CLIENT_SECRET must all be set." : msCheck?.message}>
-        <p>Skip this step if your company does not use OneDrive or SharePoint.</p>
-        <ol>
-          <li>In the <a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noreferrer">Entra admin center</a>, open <b>App registrations → New registration</b>. Name it <code>Riot Sonar Revoker</code>, keep <b>single tenant</b>, and leave the redirect URI empty.</li>
-          <li>Open <b>API permissions → Add a permission → Microsoft Graph → Application permissions</b> and add <Copy value="Files.ReadWrite.All" /></li>
-          <li>Remove the default <code>User.Read</code> delegated permission, which this app does not need.</li>
-          <li>Click <b>Grant admin consent</b>. The status column must show a green check.</li>
-          <li className="bare"><EntraPermissionsShot /></li>
-          <li>Open <b>Certificates &amp; secrets → New client secret</b> and copy its <b>Value</b> right away. Note its expiry date: the app stops working when it expires.</li>
-          <li>From the <b>Overview</b> page, copy the <b>Directory (tenant) ID</b> and the <b>Application (client) ID</b>.</li>
-          <li className="bare"><EntraSecretShot /></li>
-          <li>Add three environment variables: <code>MS_TENANT_ID</code>, <code>MS_CLIENT_ID</code> and <code>MS_CLIENT_SECRET</code>. Tip: paste the three <code>KEY=value</code> lines into the Key field and Vercel splits them.</li>
-          <li className="bare"><figure className="shot"><img src="/tutorial/vercel-env-microsoft.jpg" alt="All three variables in one form, type Secret." loading="lazy" /><figcaption>All three variables in one form, type Secret.</figcaption></figure></li>
-          <li>Redeploy, reload this page, and run the check.</li>
-        </ol>
-        <div className="check">
-          <button type="button" disabled={status.microsoft !== "ok" || busy !== null} onClick={() => check("microsoft")}>
-            {busy === "microsoft" ? "Checking…" : "Check Microsoft"}
-          </button>
+        <div className="steps">
+          <Step {...stepProps(0)} title="Deploy this app">
+            <p>This page is running, so the deployment worked. Your webhook URL:</p>
+            <Copy value={webhookUrl} />
+          </Step>
+
+          <Step {...stepProps(1)} title="Create the webhook endpoint in Riot"
+            summary={riotState === "error" ? <><code>RIOT_WEBHOOK_SECRET</code> must start with <code>whsec_</code>.</> : undefined}
+            steps={[
+              {
+                title: "Create the endpoint in Riot",
+                body: (
+                  <>
+                    <p>In the Riot hub, open <b>Settings → API</b> and click <b>Create endpoint</b>. Paste this URL:</p>
+                    <Copy value={webhookUrl} />
+                    <p>Select only this event:</p>
+                    <Copy value={EVENT_TYPE} />
+                  </>
+                ),
+                media: <Shot src="/tutorial/riot-create-endpoint.jpg" alt="Riot Create endpoint form" />,
+              },
+              {
+                title: "Copy the signing secret",
+                body: <p>Riot shows the secret once, right after you create the endpoint. It starts with <code>whsec_</code>.</p>,
+                media: <Shot src="/tutorial/riot-signing-secret.jpg" alt="Riot Save signing secret dialog" />,
+              },
+              {
+                title: <>Add it to Vercel as <code>RIOT_WEBHOOK_SECRET</code></>,
+                body: (
+                  <>
+                    <p>When you rotate secrets in Riot, put both values separated by a comma.</p>
+                    <div className="actions"><Ext href={VERCEL_ENV} primary>Open environment variables</Ext></div>
+                  </>
+                ),
+                media: <Shot src="/tutorial/vercel-env.jpg" alt="Vercel Add Environment Variable form" />,
+              },
+              redeploy(),
+            ]}
+          />
+
+          <Step {...stepProps(2)} title="Connect Google Workspace"
+            summary={status.google === "invalid" ? <><code>GOOGLE_SERVICE_ACCOUNT_JSON</code> is set but is not a valid service account key.</> : googleCheck?.message}
+            steps={[
+              {
+                title: "Create a project and enable the Drive API",
+                body: (
+                  <div className="actions">
+                    <Ext href="https://console.cloud.google.com/projectcreate" primary>Create project</Ext>
+                    <Ext href="https://console.cloud.google.com/apis/library/drive.googleapis.com">Enable Drive API</Ext>
+                  </div>
+                ),
+                media: <Shot src="/tutorial/gcp-enable-drive.jpg" alt="Enable the Google Drive API" />,
+              },
+              {
+                title: "Create a service account",
+                body: <p>In <b>IAM &amp; Admin → Service Accounts</b>. It needs no project role.</p>,
+                media: <Shot src="/tutorial/gcp-create-sa.jpg" alt="Create the service account" />,
+              },
+              {
+                title: "Download a JSON key and copy the Unique ID",
+                body: <p>Open the account, then <b>Keys → Add key → JSON</b>. The <b>Unique ID</b> on the details page is the OAuth client ID.</p>,
+                media: <GcpKeyShot />,
+              },
+              {
+                title: "Allow domain-wide delegation",
+                body: (
+                  <>
+                    <p>As a super admin, click <b>Add new</b>, paste the client ID and this scope:</p>
+                    <Copy value="https://www.googleapis.com/auth/drive" />
+                    <div className="actions"><Ext href="https://admin.google.com/ac/owl/domainwidedelegation" primary>Open Admin console</Ext></div>
+                    <p className="note">Delegation can take a few minutes to apply.</p>
+                  </>
+                ),
+                media: <Shot src="/tutorial/google-delegation.jpg" alt="Add new client ID with the Drive scope" />,
+              },
+              {
+                title: <>Add the key to Vercel as <code>GOOGLE_SERVICE_ACCOUNT_JSON</code></>,
+                body: (
+                  <>
+                    <p>Paste the whole JSON file as the value.</p>
+                    <div className="actions"><Ext href={VERCEL_ENV} primary>Open environment variables</Ext></div>
+                  </>
+                ),
+                media: <Shot src="/tutorial/vercel-env-google.jpg" alt="Vercel env var with the JSON key" />,
+              },
+              redeploy(
+                <>
+                  <p>Then check access with the email of any user in your domain:</p>
+                  <div className="check">
+                    <input type="email" placeholder="someone@yourcompany.com" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} />
+                    <button type="button" className="btn primary" disabled={status.google !== "ok" || busy !== null} onClick={() => check("google")}>
+                      {busy === "google" ? "Checking…" : "Check Google"}
+                    </button>
+                  </div>
+                </>,
+              ),
+            ]}
+          >
+            {status.google === "missing" && <Tick id="skip-google" manual={manual} toggle={toggle}>We do not use Google Drive</Tick>}
+          </Step>
+
+          <Step {...stepProps(3)} title="Connect Microsoft 365"
+            summary={status.microsoft === "partial" ? <><code>MS_TENANT_ID</code>, <code>MS_CLIENT_ID</code> and <code>MS_CLIENT_SECRET</code> must all be set.</> : msCheck?.message}
+            steps={[
+              {
+                title: "Register an app in Entra",
+                body: (
+                  <>
+                    <p>Name it <code>Riot Sonar Revoker</code>, keep <b>single tenant</b>, leave the redirect URI empty.</p>
+                    <div className="actions"><Ext href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/CreateApplicationBlade" primary>Open Entra</Ext></div>
+                  </>
+                ),
+                media: <Shot src="/tutorial/entra-register.jpg" alt="Entra Register an application form" />,
+              },
+              {
+                title: "Grant Files.ReadWrite.All",
+                body: (
+                  <>
+                    <p><b>API permissions → Add a permission → Microsoft Graph → Application permissions</b>:</p>
+                    <Copy value="Files.ReadWrite.All" />
+                    <p>Remove the default <code>User.Read</code>, then click <b>Grant admin consent</b>.</p>
+                  </>
+                ),
+                media: <EntraPermissionsShot />,
+              },
+              {
+                title: "Create a client secret and copy the IDs",
+                body: <p><b>Certificates &amp; secrets → New client secret</b>, copy its <b>Value</b> and note its expiry. From <b>Overview</b>, copy the tenant ID and the client ID.</p>,
+                media: <EntraSecretShot />,
+              },
+              {
+                title: "Add the three values to Vercel",
+                body: (
+                  <>
+                    <p>Paste these lines in the Key field, Vercel splits them:</p>
+                    <Copy value={"MS_TENANT_ID=\nMS_CLIENT_ID=\nMS_CLIENT_SECRET="} />
+                    <div className="actions"><Ext href={VERCEL_ENV} primary>Open environment variables</Ext></div>
+                  </>
+                ),
+                media: <Shot src="/tutorial/vercel-env-microsoft.jpg" alt="Vercel env vars for Microsoft" />,
+              },
+              redeploy(
+                <div className="check">
+                  <button type="button" className="btn primary" disabled={status.microsoft !== "ok" || busy !== null} onClick={() => check("microsoft")}>
+                    {busy === "microsoft" ? "Checking…" : "Check Microsoft"}
+                  </button>
+                </div>,
+              ),
+            ]}
+          >
+            {status.microsoft === "missing" && <Tick id="skip-microsoft" manual={manual} toggle={toggle}>We do not use OneDrive or SharePoint</Tick>}
+          </Step>
+
+          <Step {...stepProps(4)} title="Send a test event from Riot"
+            steps={[
+              {
+                title: "Send a test event",
+                body: (
+                  <>
+                    <p>In Riot, open the endpoint and click <b>Send test event</b>. The delivery must show <b>200</b>. Test events never revoke anything.</p>
+                    <p className="note">A 401 means <code>RIOT_WEBHOOK_SECRET</code> does not match the secret in Riot.</p>
+                  </>
+                ),
+                media: <RiotTestShot />,
+              },
+            ]}
+          >
+            <Tick id="riot-test" manual={manual} toggle={toggle}>Riot shows a successful test delivery</Tick>
+          </Step>
+
+          <Step {...stepProps(5)} title="Switch your workspace to webhook mode">
+            <p>
+              Ask your Riot account manager to switch Sonar revocations to webhook mode. Every revocation from the hub, the employee
+              Portal or auto-revocation is then sent here, and Riot only asks for read-only scopes.
+            </p>
+            <p className="note">
+              Follow revocations in your Vercel logs: <code>revoked</code>, <code>already_gone</code>, or <code>skipped</code> for inherited
+              permissions. Riot retries failures for about three days.
+            </p>
+            <Tick id="riot-enabled" manual={manual} toggle={toggle}>Riot confirmed webhook mode is on</Tick>
+          </Step>
         </div>
-        {msCheck && <p className={msCheck.ok ? "ok" : "ko"}>{msCheck.message}</p>}
-        {status.microsoft === "missing" && (
-          <Tick id="skip-microsoft" manual={manual} toggle={toggle}>We do not use OneDrive or SharePoint</Tick>
-        )}
-      </Step>
-
-      <Step n={5} title="Send a test event from Riot" state={testState}>
-        {!providerReady && <p className="note">Finish steps 3 and 4 first. A test event only checks the signature, not your Google or Microsoft access.</p>}
-        <ol>
-          <li>In Riot, open the endpoint you created and click <b>Send test event</b>.</li>
-          <li>The delivery must show status <b>200</b>. This app recognizes test events and does not revoke anything for them.</li>
-          <li>A <b>401</b> means the secret in <code>RIOT_WEBHOOK_SECRET</code> does not match the one in Riot.</li>
-        </ol>
-        <RiotTestShot />
-        <Tick id="riot-test" manual={manual} toggle={toggle}>Riot shows a successful test delivery</Tick>
-      </Step>
-
-      <Step n={6} title="Ask Riot to switch your workspace to webhook mode" state={activeState}>
-        <p>
-          Contact your Riot account manager to switch Sonar revocations to webhook mode. From then on, every revocation made in the
-          Riot Hub, in the employee Portal, or by auto-revocation, is sent to this app. Riot will then only ask for read-only scopes.
-        </p>
-        <p>
-          To follow revocations, open your Vercel project logs. Each request logs the drive item, the permission and the outcome:{" "}
-          <code>revoked</code>, <code>already_gone</code>, or <code>skipped</code> for permissions inherited from a parent folder.
-          Failures return an error to Riot, which retries for about three days.
-        </p>
-        <Tick id="riot-enabled" manual={manual} toggle={toggle}>Riot confirmed webhook mode is on</Tick>
-      </Step>
+      </div>
     </main>
   );
 }
