@@ -36,6 +36,6 @@ In the Google Workspace admin console, open **Security > Access and data control
 
 ## Update
 
-Pull the repository and run the script again. It reuses the service account and adds a new secret version.
+Pull the repository and run the script again. It reuses the service account, adds a new secret version and keeps the Microsoft settings already on the service when `MS_CLIENT_ID` is not set.
 
 Then follow [Verify a deployment](../README.md#verify-a-deployment).
