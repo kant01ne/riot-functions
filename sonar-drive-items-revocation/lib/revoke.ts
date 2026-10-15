@@ -41,6 +41,6 @@ export async function revoke(event: RevokeEvent): Promise<RevokeOutcome> {
     return revokeGooglePermission(sa, provider_data);
   }
   const app = microsoftApp();
-  if (!app) throw new ConfigurationError("MS_TENANT_ID, MS_CLIENT_ID and MS_CLIENT_SECRET are not all configured");
+  if (!app) throw new ConfigurationError("MS_TENANT_ID, MS_CLIENT_ID and MS_CLIENT_SECRET, or MS_MANAGED_IDENTITY, are not configured");
   return revokeMicrosoftPermission(app, provider_data);
 }

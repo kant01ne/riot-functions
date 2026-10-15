@@ -16,7 +16,7 @@ export async function handleCheck(request: Request): Promise<Response> {
     }
     if (provider === "microsoft") {
       const app = microsoftApp();
-      if (!app) return result(false, "MS_TENANT_ID, MS_CLIENT_ID and MS_CLIENT_SECRET must all be set.");
+      if (!app) return result(false, "Set MS_TENANT_ID, MS_CLIENT_ID and MS_CLIENT_SECRET, or MS_MANAGED_IDENTITY on Azure.");
       await checkMicrosoft(app);
       return result(true, "The app can get a token and has admin consent for Files.ReadWrite.All.");
     }

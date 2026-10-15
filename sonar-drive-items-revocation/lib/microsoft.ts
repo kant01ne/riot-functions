@@ -5,6 +5,7 @@ const GRAPH = "https://graph.microsoft.com/v1.0";
 export const REQUIRED_ROLE = "Files.ReadWrite.All";
 
 export async function microsoftAccessToken(app: MicrosoftApp): Promise<string> {
+  if ("managedIdentity" in app) return managedIdentityToken();
   const res = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(app.tenantId)}/oauth2/v2.0/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -19,6 +20,21 @@ export async function microsoftAccessToken(app: MicrosoftApp): Promise<string> {
   if (res.ok) return JSON.parse(body).access_token;
   if (res.status === 400 || res.status === 401) throw new ConfigurationError(`Microsoft token request failed: ${body}`);
   throw classifyHttpError("Microsoft token", res.status, body);
+}
+
+// Azure Functions exposes this endpoint once the app's system-assigned identity is on.
+async function managedIdentityToken(): Promise<string> {
+  const endpoint = process.env.IDENTITY_ENDPOINT;
+  const header = process.env.IDENTITY_HEADER;
+  if (!endpoint || !header) {
+    throw new ConfigurationError("MS_MANAGED_IDENTITY only works on an Azure Function App with its system-assigned identity on");
+  }
+  const url = `${endpoint}?${new URLSearchParams({ resource: "https://graph.microsoft.com", "api-version": "2019-08-01" })}`;
+  const res = await fetch(url, { headers: { "x-identity-header": header } });
+  const body = await res.text();
+  if (res.ok) return JSON.parse(body).access_token;
+  if (res.status === 400 || res.status === 401) throw new ConfigurationError(`Managed identity token request failed: ${body}`);
+  throw classifyHttpError("Managed identity token", res.status, body);
 }
 
 export function tokenRoles(token: string): string[] {

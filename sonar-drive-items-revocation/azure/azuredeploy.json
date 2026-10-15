@@ -2,7 +2,7 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "metadata": {
-    "description": "Receives Riot Sonar revocation webhooks and removes the Google Drive or Microsoft 365 permission with your own credentials."
+    "description": "Receives Riot Sonar revocation webhooks and removes the Microsoft 365 permission as the Function App's own managed identity."
   },
   "parameters": {
     "appName": {
@@ -18,31 +18,12 @@
     "releaseVersion": {
       "type": "string",
       "defaultValue": "1.0.0",
-      "metadata": { "description": "Release of sonar-drive-items-revocation to run. Redeploy with a newer one to update." }
+      "metadata": { "description": "Release of sonar-drive-items-revocation to run. Redeploy with a newer one to update. Empty when the code is zip-deployed separately, as azure/deploy.sh does." }
     },
     "riotWebhookSecret": {
       "type": "securestring",
-      "metadata": { "description": "Riot endpoint secret (whsec_...). Comma-separate two during rotation." }
-    },
-    "msTenantId": {
-      "type": "string",
       "defaultValue": "",
-      "metadata": { "description": "Entra tenant ID. Leave empty for Google only." }
-    },
-    "msClientId": {
-      "type": "string",
-      "defaultValue": "",
-      "metadata": { "description": "Entra app (client) ID." }
-    },
-    "msClientSecret": {
-      "type": "securestring",
-      "defaultValue": "",
-      "metadata": { "description": "Entra app client secret." }
-    },
-    "googleServiceAccountJson": {
-      "type": "securestring",
-      "defaultValue": "",
-      "metadata": { "description": "Google service account key with domain-wide delegation, raw JSON or base64. Leave empty for Microsoft only." }
+      "metadata": { "description": "Riot endpoint secret (whsec_...). Leave empty on the first deploy: Riot shows it once you create the endpoint with the webhookUrl output. Comma-separate two during rotation." }
     }
   },
   "variables": {
@@ -92,6 +73,7 @@
       "name": "[parameters('appName')]",
       "location": "[parameters('location')]",
       "kind": "functionapp",
+      "identity": { "type": "SystemAssigned" },
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', parameters('appName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
@@ -116,22 +98,24 @@
             { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~4" },
             { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "node" },
             { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "~22" },
-            { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "[variables('packageUrl')]" },
+            { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "[if(empty(parameters('releaseVersion')), '1', variables('packageUrl'))]" },
             {
               "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
               "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appName')), '2020-02-02').ConnectionString]"
             },
             { "name": "RIOT_WEBHOOK_SECRET", "value": "[parameters('riotWebhookSecret')]" },
-            { "name": "GOOGLE_SERVICE_ACCOUNT_JSON", "value": "[parameters('googleServiceAccountJson')]" },
-            { "name": "MS_TENANT_ID", "value": "[parameters('msTenantId')]" },
-            { "name": "MS_CLIENT_ID", "value": "[parameters('msClientId')]" },
-            { "name": "MS_CLIENT_SECRET", "value": "[parameters('msClientSecret')]" }
+            { "name": "MS_MANAGED_IDENTITY", "value": "true" }
           ]
         }
       }
     }
   ],
   "outputs": {
+    "appName": { "type": "string", "value": "[parameters('appName')]" },
+    "principalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', parameters('appName')), '2023-12-01', 'full').identity.principalId]"
+    },
     "webhookUrl": {
       "type": "string",
       "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', parameters('appName')), '2023-12-01').defaultHostName, '/api/webhook')]"
