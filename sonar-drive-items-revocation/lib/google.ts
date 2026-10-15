@@ -7,14 +7,45 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 const base64url = (input: string | Buffer) => Buffer.from(input).toString("base64url");
 
-export function buildAssertion(sa: GoogleServiceAccount, subject: string, nowSeconds = Math.floor(Date.now() / 1000)) {
+const METADATA_TOKEN_URL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
+
+export function assertionClaims(clientEmail: string, subject: string, nowSeconds = Math.floor(Date.now() / 1000)) {
+  return { iss: clientEmail, sub: subject, scope: DRIVE_SCOPE, aud: TOKEN_URL, iat: nowSeconds, exp: nowSeconds + 3600 };
+}
+
+export function buildAssertion(sa: Required<GoogleServiceAccount>, subject: string, nowSeconds?: number) {
   const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claims = base64url(
-    JSON.stringify({ iss: sa.client_email, sub: subject, scope: DRIVE_SCOPE, aud: TOKEN_URL, iat: nowSeconds, exp: nowSeconds + 3600 }),
-  );
+  const claims = base64url(JSON.stringify(assertionClaims(sa.client_email, subject, nowSeconds)));
   const signature = createSign("RSA-SHA256").update(`${header}.${claims}`).sign(sa.private_key);
   return `${header}.${claims}.${base64url(signature)}`;
 }
+
+async function metadataAccessToken(): Promise<string> {
+  const res = await fetch(METADATA_TOKEN_URL, { headers: { "metadata-flavor": "Google" } }).catch(() => null);
+  if (!res?.ok) {
+    throw new ConfigurationError("GOOGLE_SERVICE_ACCOUNT_EMAIL only works on Google Cloud; elsewhere set GOOGLE_SERVICE_ACCOUNT_JSON");
+  }
+  return (await res.json()).access_token;
+}
+
+// Lets Cloud Run do domain-wide delegation without a key file: the runtime service account needs
+// roles/iam.serviceAccountTokenCreator on the delegated service account (itself, in the default setup).
+async function signAssertionWithIam(clientEmail: string, subject: string): Promise<string> {
+  const res = await fetch(
+    `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(clientEmail)}:signJwt`,
+    {
+      method: "POST",
+      headers: { authorization: `Bearer ${await metadataAccessToken()}`, "content-type": "application/json" },
+      body: JSON.stringify({ payload: JSON.stringify(assertionClaims(clientEmail, subject)) }),
+    },
+  );
+  const body = await res.text();
+  if (!res.ok) throw classifyHttpError("Google IAM signJwt", res.status, body);
+  return JSON.parse(body).signedJwt;
+}
+
+const signAssertion = (sa: GoogleServiceAccount, subject: string) =>
+  sa.private_key ? Promise.resolve(buildAssertion({ ...sa, private_key: sa.private_key }, subject)) : signAssertionWithIam(sa.client_email, subject);
 
 export async function googleAccessToken(sa: GoogleServiceAccount, subject: string): Promise<string> {
   const res = await fetch(TOKEN_URL, {
@@ -22,7 +53,7 @@ export async function googleAccessToken(sa: GoogleServiceAccount, subject: strin
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: buildAssertion(sa, subject),
+      assertion: await signAssertion(sa, subject),
     }),
   });
   const body = await res.text();

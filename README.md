@@ -1,21 +1,7 @@
-# Riot Sonar Revoker
+# Riot functions
 
-Receives Riot Sonar revocation webhooks and removes the Google Drive or Microsoft 365 permission with your own credentials.
+Small services that Riot customers run in their own cloud. Each folder is one self-contained function, with one subfolder per hosting platform.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkant01ne%2Friot-sonar-revoker&project-name=riot-sonar-revoker)
-
-Once deployed, open the app URL and follow the setup steps.
-
-## Environment variables
-
-| Name | Value |
-| --- | --- |
-| `RIOT_WEBHOOK_SECRET` | Riot endpoint secret (`whsec_…`). Comma-separate two during rotation. |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Service account key, raw JSON or base64. |
-| `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | Entra app credentials. |
-
-## Development
-
-```bash
-npm install && npm test && npm run dev
-```
+| Function | What it does | Platforms |
+| --- | --- | --- |
+| [sonar-drive-items-revocation](sonar-drive-items-revocation) | Receives Riot Sonar revocation webhooks and removes the Google Drive or Microsoft 365 permission with your own credentials. | Vercel, AWS, Azure, Google Cloud |

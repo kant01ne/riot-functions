@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Receives Riot Sonar revocation webhooks and removes the Google Drive or Microsoft 365 permission with your own credentials.
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: riot-sonar-drive-items-revocation
+    Description: Receives Riot Sonar revocation webhooks and removes the Google Drive or Microsoft 365 permission with your own credentials.
+    Author: Riot
+    SpdxLicenseId: MIT
+    LicenseUrl: ../../LICENSE
+    ReadmeUrl: ../docs/deploy-aws.md
+    Labels: [riot, sonar, google-drive, microsoft-365, webhook]
+    HomePageUrl: https://github.com/kant01ne/riot-functions/tree/main/sonar-drive-items-revocation
+    SourceCodeUrl: https://github.com/kant01ne/riot-functions/tree/main/sonar-drive-items-revocation
+    SemanticVersion: 1.0.0
+
+Parameters:
+  RiotWebhookSecret:
+    Type: String
+    NoEcho: true
+    Description: Riot endpoint secret (whsec_...). Comma-separate two during rotation.
+  GoogleServiceAccountJson:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Google service account key with domain-wide delegation, raw JSON or base64. Leave empty for Microsoft only.
+  MsTenantId:
+    Type: String
+    Default: ""
+    Description: Entra tenant ID. Leave empty for Google only.
+  MsClientId:
+    Type: String
+    Default: ""
+    Description: Entra app (client) ID.
+  MsClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Entra app client secret.
+
+Resources:
+  RevokerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/aws/
+      Handler: index.handler
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      MemorySize: 256
+      # Google and Microsoft token exchanges plus the delete call; the 3 s default is too tight on a cold start.
+      Timeout: 30
+      Environment:
+        Variables:
+          RIOT_WEBHOOK_SECRET: !Ref RiotWebhookSecret
+          GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
+          MS_TENANT_ID: !Ref MsTenantId
+          MS_CLIENT_ID: !Ref MsClientId
+          MS_CLIENT_SECRET: !Ref MsClientSecret
+      Events:
+        Webhook:
+          Type: HttpApi
+          Properties: { Path: /api/webhook, Method: POST }
+        Check:
+          Type: HttpApi
+          Properties: { Path: /api/check, Method: POST }
+        Status:
+          Type: HttpApi
+          Properties: { Path: /, Method: GET }
+
+  RevokerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RevokerFunction}
+      RetentionInDays: 30
+
+Outputs:
+  WebhookUrl:
+    Description: Paste this URL in Riot when creating the webhook endpoint.
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/api/webhook
+  StatusUrl:
+    Description: Open this URL to check which credentials are configured.
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/

@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { configStatus } from "@/lib/config";
+import { configStatus } from "../../lib/config";
 import { Setup } from "./setup";
 
 export const dynamic = "force-dynamic";
