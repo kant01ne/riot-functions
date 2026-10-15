@@ -4,7 +4,15 @@ on:
   pull_request:
     paths: ["sonar-drive-items-revocation/**", ".github/workflows/sonar-drive-items-revocation.yml"]
   push:
+    branches: [main]
+    paths: ["sonar-drive-items-revocation/**", ".github/workflows/sonar-drive-items-revocation.yml"]
     tags: ["sonar-drive-items-revocation-v*"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 defaults:
   run:
@@ -12,34 +20,57 @@ defaults:
 
 jobs:
   check:
+    name: Test, typecheck and build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          node-version: 22
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: sonar-drive-items-revocation/.nvmrc
           cache: npm
-          cache-dependency-path: sonar-drive-items-revocation/**/package-lock.json
-      - run: npm ci
-      - run: npm test
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm ci && npm run typecheck && npx next build
+          cache-dependency-path: |
+            sonar-drive-items-revocation/package-lock.json
+            sonar-drive-items-revocation/vercel/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build platform bundles
+        run: npm run build
+      - name: Build Vercel app
         working-directory: sonar-drive-items-revocation/vercel
-      - uses: actions/upload-artifact@v4
+        run: npm ci && npm run typecheck && npm run build
+      - name: Upload bundles
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dist
           path: sonar-drive-items-revocation/dist
 
   release:
+    name: GitHub release
     if: startsWith(github.ref, 'refs/tags/')
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Download bundles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: dist
           path: sonar-drive-items-revocation/dist
@@ -55,30 +86,50 @@ jobs:
         run: |
           (cd dist/aws && zip -qr ../../sonar-drive-items-revocation-aws.zip .)
           (cd dist/azure && zip -qr ../../sonar-drive-items-revocation-azure.zip .)
+          sha256sum sonar-drive-items-revocation-*.zip > SHA256SUMS
           gh release create "$GITHUB_REF_NAME" --generate-notes \
-            sonar-drive-items-revocation-aws.zip sonar-drive-items-revocation-azure.zip
+            sonar-drive-items-revocation-aws.zip sonar-drive-items-revocation-azure.zip SHA256SUMS
 
-  # Runs only once the repository variables AWS_SAR_ROLE_ARN and AWS_SAR_BUCKET exist.
+  # Runs only once the repository variables AWS_SAR_ROLE_ARN and AWS_SAR_BUCKET exist,
+  # and after the release job has checked that the templates match the tag.
   publish-sar:
+    name: Publish to the Serverless Application Repository
     if: startsWith(github.ref, 'refs/tags/') && vars.AWS_SAR_ROLE_ARN != ''
-    needs: check
+    needs: [check, release]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Download bundles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: dist
           path: sonar-drive-items-revocation/dist
-      - uses: aws-actions/setup-sam@v2
-        with:
-          use-installer: true
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.AWS_SAR_ROLE_ARN }}
+          role-session-name: sar-publish-${{ github.run_id }}
+          role-duration-seconds: 900
           aws-region: us-east-1
-      - run: |
-          sam package --template-file aws/template.yaml --s3-bucket "${{ vars.AWS_SAR_BUCKET }}" --output-template-file packaged.yaml
+      - name: Setup SAM
+        uses: aws-actions/setup-sam@f84ec7d548307efafe33230528756de3c5841a17 # v2
+        with:
+          use-installer: true
+      - name: Package, publish and share publicly
+        env:
+          SAR_BUCKET: ${{ vars.AWS_SAR_BUCKET }}
+        run: |
+          sam package --template-file aws/template.yaml --s3-bucket "$SAR_BUCKET" --output-template-file packaged.yaml
           sam publish --template packaged.yaml --region us-east-1
+          account=$(aws sts get-caller-identity --query Account --output text)
+          aws serverlessrepo put-application-policy --region us-east-1 \
+            --application-id "arn:aws:serverlessrepo:us-east-1:$account:applications/riot-sonar-drive-items-revocation" \
+            --statements Principals='*',Actions=Deploy

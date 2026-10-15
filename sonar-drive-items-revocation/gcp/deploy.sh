@@ -57,7 +57,7 @@ cp "$FUNCTION_DIR/gcp/Dockerfile" "$FUNCTION_DIR/dist/gcp/server.mjs" "$STAGE/"
 gcloud run deploy "$SERVICE" --source "$STAGE" --region "$REGION" \
   --service-account "$SA" --allow-unauthenticated \
   --memory 256Mi --max-instances 5 --timeout 60 \
-  --set-env-vars "$ENV_VARS" --set-secrets "$SECRETS"
+  --update-env-vars "$ENV_VARS" --update-secrets "$SECRETS"
 
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')
 CLIENT_ID=$(gcloud iam service-accounts describe "$SA" --format 'value(oauth2ClientId)')

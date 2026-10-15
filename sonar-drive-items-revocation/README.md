@@ -49,3 +49,5 @@ cd vercel && npm install && npm run dev                         # Vercel app
 ```
 
 Releases are tagged `sonar-drive-items-revocation-v<version>`; bump `SemanticVersion` in `aws/template.yaml` and `releaseVersion` in `azure/azuredeploy.json` first.
+
+A tag runs the `release` environment: it publishes the GitHub release (bundles and `SHA256SUMS`), then publishes and shares the application on the Serverless Application Repository once the repository variables `AWS_SAR_ROLE_ARN` and `AWS_SAR_BUCKET` exist. The role's trust policy must accept the subject `repo:kant01ne/riot-functions:environment:release` and allow `serverlessrepo:CreateApplication`, `CreateApplicationVersion`, `UpdateApplication` and `PutApplicationPolicy`, plus `s3:PutObject` on the bucket.
