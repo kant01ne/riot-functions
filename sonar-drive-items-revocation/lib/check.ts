@@ -1,18 +1,15 @@
-import { googleServiceAccount, microsoftApp } from "@/lib/config";
-import { checkGoogle } from "@/lib/google";
-import { checkMicrosoft } from "@/lib/microsoft";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { googleServiceAccount, microsoftApp } from "./config";
+import { checkGoogle } from "./google";
+import { checkMicrosoft } from "./microsoft";
 
 const result = (ok: boolean, message: string) => Response.json({ ok, message });
 
-export async function POST(request: Request) {
+export async function handleCheck(request: Request): Promise<Response> {
   const { provider, email } = (await request.json().catch(() => ({}))) as { provider?: string; email?: string };
   try {
     if (provider === "google") {
       const sa = googleServiceAccount();
-      if (!sa) return result(false, "GOOGLE_SERVICE_ACCOUNT_JSON is missing or invalid.");
+      if (!sa) return result(false, "GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_EMAIL is missing or invalid.");
       if (!email || !email.includes("@")) return result(false, "Enter the email of a user in your Google Workspace.");
       await checkGoogle(sa, email.trim());
       return result(true, `Domain-wide delegation works: the service account can act as ${email.trim()}.`);

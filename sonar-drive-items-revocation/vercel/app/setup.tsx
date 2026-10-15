@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ConfigStatus } from "@/lib/config";
+import type { ConfigStatus } from "../../lib/config";
 import { EntraSecretShot } from "./illustrations";
 
 type State = "done" | "todo" | "error" | "skipped";

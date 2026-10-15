@@ -1,4 +1,5 @@
-export type GoogleServiceAccount = { client_email: string; private_key: string };
+// Without a private key, the assertion is signed by the IAM Credentials API as the service account the code runs as.
+export type GoogleServiceAccount = { client_email: string; private_key?: string };
 export type MicrosoftApp = { tenantId: string; clientId: string; clientSecret: string };
 
 export function riotSecrets(): string[] {
@@ -10,7 +11,7 @@ export function riotSecrets(): string[] {
 
 export function googleServiceAccount(): GoogleServiceAccount | null {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim();
-  if (!raw) return null;
+  if (!raw) return keylessServiceAccount();
   try {
     const json = raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
     const parsed = JSON.parse(json);
@@ -19,6 +20,11 @@ export function googleServiceAccount(): GoogleServiceAccount | null {
   } catch {
     return null;
   }
+}
+
+function keylessServiceAccount(): GoogleServiceAccount | null {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+  return email && /^[^@\s]+@[^@\s]+\.gserviceaccount\.com$/.test(email) ? { client_email: email } : null;
 }
 
 export function microsoftApp(): MicrosoftApp | null {
@@ -37,7 +43,7 @@ export type ConfigStatus = {
 
 export function configStatus(): ConfigStatus {
   const secrets = riotSecrets();
-  const anyGoogle = Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim());
+  const anyGoogle = ["GOOGLE_SERVICE_ACCOUNT_JSON", "GOOGLE_SERVICE_ACCOUNT_EMAIL"].some((k) => process.env[k]?.trim());
   const anyMicrosoft = ["MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET"].some((k) => process.env[k]?.trim());
   return {
     riotSecret: secrets.length === 0 ? "missing" : secrets.every((s) => s.startsWith("whsec_")) ? "ok" : "invalid",

@@ -1,0 +1,84 @@
+name: sonar-drive-items-revocation
+
+on:
+  pull_request:
+    paths: ["sonar-drive-items-revocation/**", ".github/workflows/sonar-drive-items-revocation.yml"]
+  push:
+    tags: ["sonar-drive-items-revocation-v*"]
+
+defaults:
+  run:
+    working-directory: sonar-drive-items-revocation
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sonar-drive-items-revocation/**/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm ci && npm run typecheck && npx next build
+        working-directory: sonar-drive-items-revocation/vercel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: sonar-drive-items-revocation/dist
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: sonar-drive-items-revocation/dist
+      - name: Templates match the tag
+        run: |
+          version="${GITHUB_REF_NAME#sonar-drive-items-revocation-v}"
+          grep -q "SemanticVersion: $version$" aws/template.yaml || { echo "aws/template.yaml SemanticVersion is not $version"; exit 1; }
+          jq -e --arg v "$version" '.parameters.releaseVersion.defaultValue == $v' azure/azuredeploy.json >/dev/null \
+            || { echo "azure/azuredeploy.json releaseVersion default is not $version"; exit 1; }
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd dist/aws && zip -qr ../../sonar-drive-items-revocation-aws.zip .)
+          (cd dist/azure && zip -qr ../../sonar-drive-items-revocation-azure.zip .)
+          gh release create "$GITHUB_REF_NAME" --generate-notes \
+            sonar-drive-items-revocation-aws.zip sonar-drive-items-revocation-azure.zip
+
+  # Runs only once the repository variables AWS_SAR_ROLE_ARN and AWS_SAR_BUCKET exist.
+  publish-sar:
+    if: startsWith(github.ref, 'refs/tags/') && vars.AWS_SAR_ROLE_ARN != ''
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: sonar-drive-items-revocation/dist
+      - uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_SAR_ROLE_ARN }}
+          aws-region: us-east-1
+      - run: |
+          sam package --template-file aws/template.yaml --s3-bucket "${{ vars.AWS_SAR_BUCKET }}" --output-template-file packaged.yaml
+          sam publish --template packaged.yaml --region us-east-1
