@@ -19,8 +19,9 @@ Receives Riot Sonar revocation webhooks and removes the Google Drive or Microsof
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Service account key, raw JSON or base64. |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Google Cloud only, instead of a key: the service account the receiver runs as, which signs its own delegation tokens. |
 | `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | Entra app credentials. |
+| `MS_MANAGED_IDENTITY` | Azure only, instead of an Entra app: `true` to call Microsoft Graph as the Function App's managed identity. |
 
-Google needs domain-wide delegation for the service account's client ID with the scope `https://www.googleapis.com/auth/drive`. Microsoft needs the `Files.ReadWrite.All` application permission with admin consent.
+Google needs domain-wide delegation for the service account's client ID with the scope `https://www.googleapis.com/auth/drive`. Microsoft needs the `Files.ReadWrite.All` application permission with admin consent, granted to the Entra app or to the managed identity.
 
 ## Verify a deployment
 

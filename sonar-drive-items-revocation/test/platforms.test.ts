@@ -136,3 +136,38 @@ describe("keyless Google service account", () => {
     expect(await (await route(new Request("https://x/"))).json()).toMatchObject({ google: "invalid" });
   });
 });
+
+describe("Microsoft managed identity", () => {
+  const msBody = JSON.stringify({
+    type: "revoke_drive_item_permission_request.created",
+    timestamp: "2026-10-14T10:00:00Z",
+    data: { provider: "microsoft", provider_data: { owner_id: "u1", permission_id: "p1", drive_item_id: "i1" } },
+  });
+  const deliver = () => {
+    const { "webhook-test": _, ...headers } = signedHeaders(msBody);
+    return route(new Request("https://x/api/webhook", { method: "POST", headers, body: msBody }));
+  };
+
+  it("gets the Graph token from the Function App identity", async () => {
+    vi.stubEnv("MS_MANAGED_IDENTITY", "true");
+    vi.stubEnv("IDENTITY_ENDPOINT", "http://localhost:8081/msi/token");
+    vi.stubEnv("IDENTITY_HEADER", "h1");
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ access_token: "mi-token" }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    expect(await (await deliver()).json()).toEqual({ status: "revoked" });
+    const [tokenUrl, tokenInit] = fetchMock.mock.calls[0];
+    expect(tokenUrl).toBe("http://localhost:8081/msi/token?resource=https%3A%2F%2Fgraph.microsoft.com&api-version=2019-08-01");
+    expect(tokenInit.headers["x-identity-header"]).toBe("h1");
+    expect(fetchMock.mock.calls[1][1].headers.authorization).toBe("Bearer mi-token");
+  });
+
+  it("explains that the identity must be on", async () => {
+    vi.stubEnv("MS_MANAGED_IDENTITY", "true");
+    vi.stubEnv("IDENTITY_ENDPOINT", "");
+    const res = await deliver();
+    expect(res.status).toBe(500);
+    expect((await res.json()).message).toMatch(/system-assigned identity/);
+  });
+});
