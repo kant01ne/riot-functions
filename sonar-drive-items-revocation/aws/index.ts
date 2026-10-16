@@ -1,3 +1,4 @@
+import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { route } from "../lib/router";
 
 // API Gateway HTTP API payload format 2.0. SAR does not accept Lambda function URLs, so the template uses an HTTP API.
@@ -24,7 +25,28 @@ export function toRequest(event: HttpApiEvent): Request {
   return new Request(`https://${domainName}${event.rawPath}${query}`, { method: http.method, headers, body: hasBody ? body : undefined });
 }
 
+// The credentials live in one Secrets Manager secret, a JSON object keyed by the variable names lib/config reads.
+// Reloaded every minute so a value the deploy script just saved applies without a redeploy.
+const SECRET_KEYS = ["RIOT_WEBHOOK_SECRET", "GOOGLE_SERVICE_ACCOUNT_JSON", "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET"];
+const SECRET_TTL_MS = 60_000;
+let secrets: SecretsManagerClient | undefined;
+let loadedAt = 0;
+
+async function loadSecret(): Promise<void> {
+  const secretId = process.env.SECRET_ARN;
+  if (!secretId || Date.now() - loadedAt < SECRET_TTL_MS) return;
+  secrets ??= new SecretsManagerClient({});
+  const { SecretString } = await secrets.send(new GetSecretValueCommand({ SecretId: secretId }));
+  const values = JSON.parse(SecretString || "{}") as Record<string, unknown>;
+  for (const key of SECRET_KEYS) {
+    if (typeof values[key] === "string" && values[key]) process.env[key] = values[key];
+    else delete process.env[key];
+  }
+  loadedAt = Date.now();
+}
+
 export async function handler(event: HttpApiEvent): Promise<HttpApiResult> {
+  await loadSecret();
   const response = await route(toRequest(event));
   return { statusCode: response.status, headers: Object.fromEntries(response.headers), body: await response.text() };
 }

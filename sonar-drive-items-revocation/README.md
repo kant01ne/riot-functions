@@ -6,8 +6,8 @@ Receives Riot Sonar revocation webhooks and removes the Google Drive or Microsof
 
 | Platform | How | Guide |
 | --- | --- | --- |
-| Vercel | [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkant01ne%2Friot-functions&root-directory=sonar-drive-items-revocation%2Fvercel&project-name=riot-sonar-revoker) | Open the app URL and follow the setup steps. |
-| AWS | Lambda from the Serverless Application Repository | [docs/deploy-aws.md](docs/deploy-aws.md) |
+| Vercel | [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkant01ne%2Friot-functions&root-directory=sonar-drive-items-revocation%2Fvercel&project-name=riot-sonar-revoker) | Open the app URL and follow the setup steps, or use the CLI: [docs/deploy-vercel.md](docs/deploy-vercel.md) |
+| AWS | Lambda, from CloudShell with a guided script | [docs/deploy-aws.md](docs/deploy-aws.md) |
 | Azure | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fkant01ne%2Friot-functions%2Fmain%2Fsonar-drive-items-revocation%2Fazure%2Fazuredeploy.json) | [docs/deploy-azure.md](docs/deploy-azure.md) |
 | Google Cloud | Cloud Run, from Cloud Shell, no key file | [docs/deploy-gcp.md](docs/deploy-gcp.md) |
 

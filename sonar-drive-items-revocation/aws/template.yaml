@@ -15,31 +15,17 @@ Metadata:
     SourceCodeUrl: https://github.com/kant01ne/riot-functions/tree/main/sonar-drive-items-revocation
     SemanticVersion: 1.0.0
 
-Parameters:
-  RiotWebhookSecret:
-    Type: String
-    NoEcho: true
-    Description: Riot endpoint secret (whsec_...). Comma-separate two during rotation.
-  GoogleServiceAccountJson:
-    Type: String
-    NoEcho: true
-    Default: ""
-    Description: Google service account key with domain-wide delegation, raw JSON or base64. Leave empty for Microsoft only.
-  MsTenantId:
-    Type: String
-    Default: ""
-    Description: Entra tenant ID. Leave empty for Google only.
-  MsClientId:
-    Type: String
-    Default: ""
-    Description: Entra app (client) ID.
-  MsClientSecret:
-    Type: String
-    NoEcho: true
-    Default: ""
-    Description: Entra app client secret.
-
 Resources:
+  # Riot only shows its signing secret once the endpoint exists, and the endpoint needs this stack's URL, so the
+  # stack starts with an empty secret that the deploy script, or the console, fills afterwards. Stack updates
+  # leave the stored value alone because the template's value never changes.
+  RevokerSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}
+      Description: Riot signing secret and Google or Microsoft credentials of the Riot Sonar revoker, as JSON.
+      SecretString: "{}"
+
   RevokerFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -52,11 +38,10 @@ Resources:
       Timeout: 30
       Environment:
         Variables:
-          RIOT_WEBHOOK_SECRET: !Ref RiotWebhookSecret
-          GOOGLE_SERVICE_ACCOUNT_JSON: !Ref GoogleServiceAccountJson
-          MS_TENANT_ID: !Ref MsTenantId
-          MS_CLIENT_ID: !Ref MsClientId
-          MS_CLIENT_SECRET: !Ref MsClientSecret
+          SECRET_ARN: !Ref RevokerSecret
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref RevokerSecret
       Events:
         Webhook:
           Type: HttpApi
@@ -81,3 +66,9 @@ Outputs:
   StatusUrl:
     Description: Open this URL to check which credentials are configured.
     Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/
+  SecretArn:
+    Description: Store the Riot signing secret and the Google or Microsoft credentials here.
+    Value: !Ref RevokerSecret
+  FunctionName:
+    Description: The Lambda function, for its logs.
+    Value: !Ref RevokerFunction
