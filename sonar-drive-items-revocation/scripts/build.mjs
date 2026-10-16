@@ -10,7 +10,14 @@ const common = { bundle: true, platform: "node", target: "node22", legalComments
 
 const targets = {
   async aws() {
-    await build({ ...common, entryPoints: [join(root, "aws/index.ts")], outfile: join(dist, "aws/index.mjs"), format: "esm" });
+    await build({
+      ...common,
+      entryPoints: [join(root, "aws/index.ts")],
+      outfile: join(dist, "aws/index.mjs"),
+      format: "esm",
+      // The Lambda Node.js runtime ships the AWS SDK v3.
+      external: ["@aws-sdk/*"],
+    });
   },
   async azure() {
     const out = join(dist, "azure");
